@@ -1,0 +1,48 @@
+#
+# This is the user-interface definition of a Shiny web application. You can
+# run the application by clicking 'Run App' above.
+#
+# Find out more about building applications with Shiny here:
+# 
+#    http://shiny.rstudio.com/
+#
+
+library(shiny)
+
+# Define UI for application that draws a histogram
+shinyUI(fluidPage(
+  
+  # Application title
+  titlePanel("Biostimulatory Scoring Tool for California"),
+  
+  # Sidebar with a slider input for number of bins 
+  sidebarLayout(
+    sidebarPanel(
+       numericInput(inputId="x_TN",
+                   "Total N (mg/L):",
+                   min = 0,
+                   max = NA,
+                   value = .1),
+       numericInput(inputId="x_TP",
+                    "Total P (mg/L):",
+                    min = 0,
+                    max = NA,
+                    value = 0.01),
+       numericInput(inputId="x_CHLA",
+                    "Chlorphyll a (mg/m2):",
+                    min = 0,
+                    max = NA,
+                    value = 10),
+       numericInput(inputId="x_AFDM",
+                    "Ash-free dry mass (mg/cm2):",
+                    min = 0,
+                    max = NA,
+                    value = 10)
+    ),
+    
+    # Show a plot of the generated distribution
+    mainPanel(
+       plotOutput("distPlot")
+    )
+  )
+))
