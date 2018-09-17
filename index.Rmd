@@ -1,9 +1,7 @@
 ---
 title: "Biostimulatory analysis tool"
 output: 
-  html_document:
-    toc: true
-    toc_float: true
+  html_document
 self_contained: yes
 runtime: shiny
 ---
@@ -17,9 +15,117 @@ knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.pat = 'fig/')
 library(tidyverse)
 library(shiny)
 library(gridExtra)
+library(shinyWidgets)
+library(rsconnect)
 
 # data
 data(thrsdat)
 data(bsbidat)
-data(thrsdat)
+data(tllydat)
+
+# unique bs variables
+unibs <- tllydat %>% 
+  pull(BSPretty) %>% 
+  unique
+
+# unique bi goals
+unigl <- tllydat %>% 
+  pull(BIgoal) %>% 
+  unique
+
+# unique bi response
+unirs <- tllydat %>% 
+  pull(Response) %>% 
+  unique
+
+# unique prob of meeting goal
+unipr <- tllydat %>% 
+  filter(!Prob %in% 'p50') %>% 
+  pull(Prob) %>% 
+  unique
 ```
+
+The below table shows the estimated biostimulatory targets for the selections. The table is sorted by ascending values to emphasize the minimum target for each biointegrity response and selected biostimulatory variable that must be met to satisfy all targets.  
+```{r inputs}
+column(12, 
+       
+       column(6, 
+              pickerInput("selbs", label = 'Select biostim variable(s):', choices = unibs, multiple = TRUE,
+                          selected = unibs
+                                    )
+       ),
+       
+       column(6, 
+              pickerInput("selrs", label = 'Select biointegrity response(s):', choices = unirs, multiple = TRUE,
+                          selected = unirs
+                                    )
+       )
+)
+
+column(12, 
+       
+       column(6, 
+              selectInput("selgl", label = 'Select biointegrity goal:', choices = unigl
+                                    )
+       ),
+       
+       column(6, 
+              selectInput("selpr", label = 'Select probability of meeting goal:', choices = unipr
+                                    )
+       )
+       
+)
+```
+
+```{r reactives}
+# relevant targets for selection
+trgts <- reactive({
+  
+  # input
+  selbs <- input$selbs
+  selrs <- input$selrs
+  selgl <- input$selgl
+  selpr <- input$selpr
+  
+  # filter by selection
+  # order by minimum target estimate
+  out <- tllydat %>% 
+    filter(
+      BSPretty %in% selbs &
+      Response %in% selrs &
+      BIgoal %in% selgl &
+      Prob %in% selpr
+    ) %>% 
+    select(BSPretty, Response, Est, l95, u95) %>% 
+    group_by(BSPretty) %>% 
+    arrange(BSPretty, Est) %>% 
+    mutate(
+      rnk = 1,
+      rnk = cumsum(rnk),
+      rnk = as.integer(rnk)
+    ) %>% 
+    ungroup %>% 
+    mutate(
+      BSPretty = ifelse(duplicated(BSPretty), '', BSPretty)
+    ) %>% 
+    rename(
+      `Biostimulatory variable` = BSPretty, 
+      `Biointegrity response` = Response,
+      `Biostimulatory target` = Est, 
+      `Lower 95th CI` = l95,
+      `Upper 95th CI` = u95, 
+      `Target rank` = rnk
+    )
+  
+  return(out)
+  
+})
+
+# filter observed site data by selection
+
+```
+
+```{r}
+renderTable({trgts()})
+```
+
