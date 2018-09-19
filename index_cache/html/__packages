@@ -12,3 +12,6 @@ forcats
 gridExtra
 shinyWidgets
 bindrcpp
+rsconnect
+DT
+rmarkdown

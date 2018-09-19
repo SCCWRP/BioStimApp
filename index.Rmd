@@ -17,6 +17,7 @@ library(shiny)
 library(gridExtra)
 library(shinyWidgets)
 library(rsconnect)
+library(DT)
 
 # data
 data(thrsdat)
@@ -45,7 +46,7 @@ unipr <- tllydat %>%
   unique
 ```
 
-The below table shows the estimated biostimulatory targets for the selections. The table is sorted by ascending values to emphasize the minimum target for each biointegrity response and selected biostimulatory variable that must be met to satisfy all targets.  
+Select the biostimulatory variables (one to all), biontegrity indices (one to all), one biointegrity goal, and one probability of meeting the goal.
 ```{r inputs}
 column(12, 
        
@@ -65,12 +66,12 @@ column(12,
 column(12, 
        
        column(6, 
-              selectInput("selgl", label = 'Select biointegrity goal:', choices = unigl
+              selectInput("selgl", label = 'Select biointegrity goal:', choices = unigl, selected = 'Ref10'
                                     )
        ),
        
        column(6, 
-              selectInput("selpr", label = 'Select probability of meeting goal:', choices = unipr
+              selectInput("selpr", label = 'Select probability of meeting goal:', choices = unipr, selected = 'p80'
                                     )
        )
        
@@ -78,15 +79,72 @@ column(12,
 ```
 
 ```{r reactives}
+# filter bi thresholds by selection
+thrsrct <- reactive({
+  
+  # input
+  selgl <- input$selgl
+  selrs <- input$selrs
+  
+  out <- thrsdat %>% 
+    filter(BIgoal %in% selgl) %>% 
+    filter(Response %in% selrs) %>% 
+    unique
+  
+  return(out)
+  
+})
+
+# get all combinations from 1 to n for selected bs variables
+cmbsrct <- reactive({
+  
+  # input
+  trgtrct <- trgtrct()
+  
+  # validated bs variables
+  valbs <- trgtrct$BSPretty
+  
+  # get all combos as nested list
+  out <- 0:length(valbs) %>% 
+    sapply(function(m) combn(m, x = valbs, simplify = F), simplify = F) %>% 
+    do.call('c', .) %>% 
+    enframe %>% 
+    unnest %>% 
+    group_by(name) %>% 
+    mutate(
+      cnt = length(name),
+      trg = 'unmet'
+      ) %>% 
+    ungroup %>% 
+    spread(value, trg, fill = 'met')
+  
+  # all met add manually
+  torbind <- tibble(
+    name = 1, 
+    cnt = 0, 
+    bsvar = !! valbs,
+    bsval = 'met'
+  ) %>% 
+    spread(bsvar, bsval)
+  
+  # join all
+  out <- out %>% 
+    rbind(torbind, .) %>% 
+    mutate(cnt = as.integer(cnt)) 
+  
+  return(out)
+    
+})
+
 # relevant targets for selection
-trgts <- reactive({
+trgtrct <- reactive({
   
   # input
   selbs <- input$selbs
   selrs <- input$selrs
   selgl <- input$selgl
   selpr <- input$selpr
-  
+
   # filter by selection
   # order by minimum target estimate
   out <- tllydat %>% 
@@ -96,7 +154,7 @@ trgts <- reactive({
       BIgoal %in% selgl &
       Prob %in% selpr
     ) %>% 
-    select(BSPretty, Response, Est, l95, u95) %>% 
+    select(BSPretty, Response, Est) %>% 
     group_by(BSPretty) %>% 
     arrange(BSPretty, Est) %>% 
     mutate(
@@ -104,28 +162,135 @@ trgts <- reactive({
       rnk = cumsum(rnk),
       rnk = as.integer(rnk)
     ) %>% 
+    filter(rnk == 1) %>% 
     ungroup %>% 
-    mutate(
-      BSPretty = ifelse(duplicated(BSPretty), '', BSPretty)
-    ) %>% 
-    rename(
-      `Biostimulatory variable` = BSPretty, 
-      `Biointegrity response` = Response,
-      `Biostimulatory target` = Est, 
-      `Lower 95th CI` = l95,
-      `Upper 95th CI` = u95, 
-      `Target rank` = rnk
-    )
-  
+    select(BSPretty, Est)
+   
   return(out)
   
 })
 
-# filter observed site data by selection
+# filter observed site data by selection, get bi category and bs pass/fail
+bsbirct <- reactive({
+
+  # input
+  selrs <- input$selrs
+  selgl <- input$selgl
+  trgtrct <- trgtrct()
+  thrsrct <- thrsrct()
+  cmbsrct <- cmbsrct()
+  
+  # validated bs variables
+  valbs <- trgtrct$BSPretty
+  
+  # filter observed, join with threshold and bs target data, get pass fail
+  alltlly <- bsbidat %>% 
+    filter(
+      BSPretty %in% valbs &
+      Response %in% selrs
+      ) %>% 
+    left_join(trgtrct, by = 'BSPretty') %>% 
+    left_join(thrsrct, by = 'Response') %>% 
+    mutate(
+      bsfail = ifelse(bsval > Est, 'unmet', 'met'),
+      bipass = bival >= glval
+    ) %>% 
+    group_by(MasterID, SampleDate) %>% 
+    mutate(
+      bipassall = ifelse(any(!bipass), FALSE, TRUE)
+    ) %>% 
+    select(MasterID, SampleDate, bipassall, DevSet, BSPretty, bsfail) %>% 
+    unique
+  
+  # get pass fail counts, total passing in each group summarized
+  sumtlly <- alltlly %>% 
+    group_by(MasterID, SampleDate, DevSet) %>% 
+    filter(!anyNA(bipassall)) %>% # remove sites with incomplete bi data
+    filter(!anyNA(bsfail)) %>% # remove sites with incomplete bs data
+    spread(BSPretty, bsfail) %>% 
+    group_by_at(vars(one_of(c('DevSet', valbs)))) %>% 
+    summarise(
+      bipasstot = sum(bipassall),
+      bipassall = length(bipassall),
+      bipassprp = bipasstot / bipassall,
+      bipassprp = round(bipassprp, 2)
+    ) %>% 
+    select(-bipasstot) %>% 
+    gather('sumvar', 'sumval', bipassall, bipassprp) %>% 
+    ungroup %>% 
+    unite('sumvar', DevSet, sumvar, sep = '_') %>% 
+    spread(sumvar, sumval, fill = 0)
+  
+  # join with all possible combos from cmbsrct
+  # give it pretty names
+  out <- sumtlly %>% 
+    left_join(cmbsrct, ., by = valbs) %>% 
+    replace(., is.na(.), 0) %>% 
+    mutate(
+      Cal_bipassall = as.integer(Cal_bipassall),
+      Val_bipassall = as.integer(Val_bipassall)
+    ) %>% 
+    rename(
+      `Count unmet` = cnt, 
+      `Total sites (cal)` = Cal_bipassall,
+      `Proportion passing (cal)` = Cal_bipassprp,
+      `Total sites (val)` = Val_bipassall,
+      `Proportion passing (val)` = Val_bipassprp
+    )
+
+  return(out)
+      
+})
 
 ```
 
+This table shows the lowest validated biostimulatory targets for the selections above. Some biostimulatory variables may not be shown if the targets were not valided.   
+```{r output}
+renderTable({
+  
+  # input
+  trgtrct <- trgtrct()
+  
+  # slight formatting 
+  trgtrct <- trgtrct %>% 
+    rename(
+      `Biostimulatory variable` = BSPretty,
+      `Lowest valided target` = Est
+    )
+  
+  trgtrct
+  
+  })
+```
+
+This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  The totals indicate the number of sites in each category and the proportion of those sites for which all biointegrity goals are met.  Totals are separated by calibration and validation sites. 
 ```{r}
-renderTable({trgts()})
+renderDataTable({
+  
+  # input
+  bsbirct <- bsbirct()
+  
+  totab <- bsbirct %>% 
+    select(-name)
+
+  totab
+  
+}, rownames = F, options = list(dom = 't', pageLength = 32))
+
+# # calibration plot
+# renderPlot({
+# 
+#   # input
+#   bsbirctcal <- bsbirctcal()
+# 
+#   # grid plot
+#   toplo1 <- bsbirctcal %>%
+#     select(-DevSet, -bipasstot, -bipassprp) %>%
+#     gather('bsvar', 'bsval', -cnt, -ind)
+# 
+#   p1 <- ggplot(toplo1, aes(x = bsvar, y = ind, fill = bsval)) +
+#     geom_tile()
+#   return(bsbirctcal)
+#   })
 ```
 
