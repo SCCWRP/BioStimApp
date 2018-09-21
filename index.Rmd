@@ -221,7 +221,7 @@ bsbirct <- reactive({
       bipasstot = sum(bipassall),
       bipassall = length(bipassall),
       bipassprp = bipasstot / bipassall,
-      bipassprp = round(bipassprp, 2)
+      bipassprp = round(100 * bipassprp, 0)
     ) %>% 
     select(-bipasstot) %>% 
     gather('sumvar', 'sumval', bipassall, bipassprp) %>% 
@@ -275,7 +275,7 @@ renderTable({
   })
 ```
 
-This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  Targets tha are met are designated with "X".  The totals indicate the number of sites in each category and the proportion of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
+This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  Targets that are met are designated with "X".  The totals indicate the number of sites in each category and the percentage of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
 ```{r}
 output$sumtab <- renderDataTable({
   
@@ -294,9 +294,9 @@ output$sumtab <- renderDataTable({
     rename(
       `Total biostim targets met` = cnt, 
       `Total sites (cal)` = Cal_bipassall,
-      `Proportion meeting selected biointegrity targets (cal)` = Cal_bipassprp,
+      `% meeting selected biointegrity targets (cal)` = Cal_bipassprp,
       `Total sites (val)` = Val_bipassall,
-      `Proportion meeting selected biointegrity targets (val)` = Val_bipassprp
+      `% meeting selected biointegrity targets (val)` = Val_bipassprp
     )
 
   # tab output
