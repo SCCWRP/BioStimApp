@@ -46,6 +46,8 @@ unipr <- tllydat %>%
   unique
 ```
 
+For internal SCCWRP/Waterboard use only for review of draft biostimulatory analyses. These are preliminary results, and are subject to change. Do not distribute. For questions, contact [Raphael Mazor](mailto:raphaelm@sccwrp.org) or [Marcus Beck](mailto:marcusb@sccwrp.org).”
+
 Select the biostimulatory variables (one to all), biontegrity indices (one to all), one biointegrity goal, and one probability of meeting the goal.
 ```{r inputs}
 column(12, 
@@ -71,7 +73,7 @@ column(12,
        ),
        
        column(6, 
-              selectInput("selpr", label = 'Select probability of meeting goal:', choices = unipr, selected = 'p80'
+              selectInput("selpr", label = 'Select probability of meeting goal:', choices = unipr, selected = 'p90'
                                     )
        )
        
@@ -95,9 +97,9 @@ thrsrct <- reactive({
   
 })
 
-# get all combinations from 1 to n for selected bs variables
+# get all combinations from 0 to n for selected bs variables
 cmbsrct <- reactive({
-  
+
   # input
   trgtrct <- trgtrct()
   
@@ -124,12 +126,15 @@ cmbsrct <- reactive({
     cnt = 0, 
     bsvar = !! valbs,
     bsval = 'met'
-  ) %>% 
+    ) %>% 
     spread(bsvar, bsval)
   
   # join all
   out <- out %>% 
     rbind(torbind, .) %>% 
+    mutate(
+      cnt = max(cnt) - cnt # cnt is total passing as inverse
+    ) %>% 
     mutate(cnt = as.integer(cnt)) 
   
   return(out)
@@ -231,7 +236,7 @@ bsbirct <- reactive({
       Val_bipassall = as.integer(Val_bipassall)
     ) %>% 
     rename(
-      `Count unmet` = cnt, 
+      `# biostim targets met` = cnt, 
       `Total sites (cal)` = Cal_bipassall,
       `Proportion passing (cal)` = Cal_bipassprp,
       `Total sites (val)` = Val_bipassall,
@@ -251,19 +256,27 @@ renderTable({
   # input
   trgtrct <- trgtrct()
   
+  # labels with units
+  labs <- tibble(
+    BSPretty = c('Total N', 'Total P', 'Chl-a', 'AFDM', '% cover'),
+    BSlabs = c('Total N (mg/L)', 'Total P (mg/L)', 'Chla-a (mg/m2)', 'AFDM (mg/cm2)', '% macroalgae cover')
+  )
+  
   # slight formatting 
   trgtrct <- trgtrct %>% 
+    left_join(labs, by = 'BSPretty') %>% 
+    select(BSlabs, Est) %>% 
     rename(
-      `Biostimulatory variable` = BSPretty,
+      `Biostimulatory variable` = BSlabs,
       `Lowest valided target` = Est
     )
-  
+    
   trgtrct
   
   })
 ```
 
-This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  The totals indicate the number of sites in each category and the proportion of those sites for which all biointegrity goals are met.  Totals are separated by calibration and validation sites. 
+This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  The totals indicate the number of sites in each category and the proportion of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
 ```{r}
 renderDataTable({
   
@@ -277,20 +290,5 @@ renderDataTable({
   
 }, rownames = F, options = list(dom = 't', pageLength = 32))
 
-# # calibration plot
-# renderPlot({
-# 
-#   # input
-#   bsbirctcal <- bsbirctcal()
-# 
-#   # grid plot
-#   toplo1 <- bsbirctcal %>%
-#     select(-DevSet, -bipasstot, -bipassprp) %>%
-#     gather('bsvar', 'bsval', -cnt, -ind)
-# 
-#   p1 <- ggplot(toplo1, aes(x = bsvar, y = ind, fill = bsval)) +
-#     geom_tile()
-#   return(bsbirctcal)
-#   })
 ```
 
