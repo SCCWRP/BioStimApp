@@ -46,7 +46,7 @@ unipr <- tllydat %>%
   unique
 ```
 
-For internal SCCWRP/Waterboard use only for review of draft biostimulatory analyses. These are preliminary results, and are subject to change. Do not distribute. For questions, contact [Raphael Mazor](mailto:raphaelm@sccwrp.org) or [Marcus Beck](mailto:marcusb@sccwrp.org).”
+For internal SCCWRP/Waterboard use only for review of draft biostimulatory analyses. These are preliminary results, and are subject to change. Do not distribute. For questions, contact [Raphael Mazor](mailto:raphaelm@sccwrp.org) or [Marcus Beck](mailto:marcusb@sccwrp.org).
 
 Select the biostimulatory variables (one to all), biontegrity indices (one to all), one biointegrity goal, and one probability of meeting the goal.
 ```{r inputs}
@@ -107,6 +107,7 @@ cmbsrct <- reactive({
   valbs <- trgtrct$BSPretty
   
   # get all combos as nested list
+  # unmet is '', met is 'X'
   out <- 0:length(valbs) %>% 
     sapply(function(m) combn(m, x = valbs, simplify = F), simplify = F) %>% 
     do.call('c', .) %>% 
@@ -115,17 +116,17 @@ cmbsrct <- reactive({
     group_by(name) %>% 
     mutate(
       cnt = length(name),
-      trg = 'unmet'
+      trg = ''
       ) %>% 
     ungroup %>% 
-    spread(value, trg, fill = 'met')
+    spread(value, trg, fill = 'X')
   
   # all met add manually
   torbind <- tibble(
     name = 1, 
     cnt = 0, 
     bsvar = !! valbs,
-    bsval = 'met'
+    bsval = 'X'
     ) %>% 
     spread(bsvar, bsval)
   
@@ -185,6 +186,8 @@ bsbirct <- reactive({
   thrsrct <- thrsrct()
   cmbsrct <- cmbsrct()
   
+  req(nrow(trgtrct) > 0)
+  
   # validated bs variables
   valbs <- trgtrct$BSPretty
   
@@ -197,7 +200,7 @@ bsbirct <- reactive({
     left_join(trgtrct, by = 'BSPretty') %>% 
     left_join(thrsrct, by = 'Response') %>% 
     mutate(
-      bsfail = ifelse(bsval > Est, 'unmet', 'met'),
+      bsfail = ifelse(bsval > Est, '', 'X'),
       bipass = bival >= glval
     ) %>% 
     group_by(MasterID, SampleDate) %>% 
@@ -234,14 +237,7 @@ bsbirct <- reactive({
     mutate(
       Cal_bipassall = as.integer(Cal_bipassall),
       Val_bipassall = as.integer(Val_bipassall)
-    ) %>% 
-    rename(
-      `# biostim targets met` = cnt, 
-      `Total sites (cal)` = Cal_bipassall,
-      `Proportion passing (cal)` = Cal_bipassprp,
-      `Total sites (val)` = Val_bipassall,
-      `Proportion passing (val)` = Val_bipassprp
-    )
+    ) 
 
   return(out)
       
@@ -271,24 +267,51 @@ renderTable({
       `Lowest valided target` = Est
     )
     
+  if(nrow(trgtrct) == 0)
+    trgtrct <- 'No targets were validated'
+  
   trgtrct
   
   })
 ```
 
-This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  The totals indicate the number of sites in each category and the proportion of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
+This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  Targets tha are met are designated with "X".  The totals indicate the number of sites in each category and the proportion of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
 ```{r}
-renderDataTable({
+output$sumtab <- renderDataTable({
   
   # input
   bsbirct <- bsbirct()
   
-  totab <- bsbirct %>% 
-    select(-name)
-
-  totab
+  # rows where number of cal sites > 10
+  tobld <- bsbirct %>% 
+    pull(Cal_bipassall) %>% 
+    ">=" (10) %>% 
+    which
   
-}, rownames = F, options = list(dom = 't', pageLength = 32))
+  # table data
+  totab <- bsbirct %>% 
+    select(-name)%>% 
+    rename(
+      `Total biostim targets met` = cnt, 
+      `Total sites (cal)` = Cal_bipassall,
+      `Proportion meeting selected biointegrity targets (cal)` = Cal_bipassprp,
+      `Total sites (val)` = Val_bipassall,
+      `Proportion meeting selected biointegrity targets (val)` = Val_bipassprp
+    )
 
+  # tab output
+  datatable(totab, 
+            options = list(dom = 't', pageLength = 32, fixedHeader = TRUE),
+            extensions = "FixedHeader"
+            ) %>% 
+    formatStyle(columns = c(2:6), 'text-align' = 'center') %>%
+    formatStyle(0,
+      target = "row",
+      fontWeight = styleEqual(tobld, rep("bold", length(tobld)))
+    )
+  
+})
+ 
+dataTableOutput('sumtab')
 ```
 
