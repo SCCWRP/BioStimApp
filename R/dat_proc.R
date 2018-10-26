@@ -1,10 +1,13 @@
 library(tidyverse)
+library(sf)
 
+##
 # biostimulatory thresholds for each index
 thrsdat <- read.csv('raw/BIthresholds.csv', stringsAsFactors = F) %>% 
   gather('BIgoal', 'glval', -Index) %>% 
   rename(Response = Index)
 
+##
 # site bs values and bi values
 # filter only selected sites
 bsbidat <- read.csv('raw/mydf.c3.csv', stringsAsFactors = F) %>% 
@@ -23,6 +26,19 @@ bsbidat <- read.csv('raw/mydf.c3.csv', stringsAsFactors = F) %>%
     BSPretty = as.character(BSPretty)
   )
 
+# get constrained/unconstrained from landscape_mod repo, join with bsbidat
+load(file = '../../Channels in developed landscapes_RM/Marcus/landscape_mod/data/calicls.RData')
+load(file = '../../Channels in developed landscapes_RM/Marcus/landscape_mod/data/csci_comid.RData')
+
+allcls <- calicls %>% 
+  select(COMID, strcls)
+st_geometry(allcls) <- NULL
+
+cscicom <- csci_comid %>% 
+  select(StationCode, COMID, SampleDate, CSCI, SiteSet) %>% 
+  inner_join(allcls, by = 'COMID')
+
+##
 # site counts of passing/failing by each target, with probabilities
 # filter those where RR.l95.cal and RR.l95.val > 1
 tllydat <- read.csv('raw/tab.threshold.rr.summary.csv', stringsAsFactors = F) %>% 
