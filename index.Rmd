@@ -44,6 +44,11 @@ unipr <- tllydat %>%
   filter(!Prob %in% 'p50') %>% 
   pull(Prob) %>% 
   unique
+
+# stream classes to select
+unicl <- bsbidat %>% 
+  pull(strcls) %>% 
+  levels
 ```
 
 For internal SCCWRP/Waterboard use only for review of draft biostimulatory analyses. These are preliminary results, and are subject to change. Do not distribute. For questions, contact [Raphael Mazor](mailto:raphaelm@sccwrp.org) or [Marcus Beck](mailto:marcusb@sccwrp.org).
@@ -76,6 +81,14 @@ column(12,
               selectInput("selpr", label = 'Select probability of meeting goal:', choices = unipr, selected = 'p90'
                                     )
        )
+       
+)
+
+column(12, 
+       
+       column(6, 
+              pickerInput("selcl", label = 'Select site types:', choices = unicl, multiple = T, selected = unicl)
+              )
        
 )
 ```
@@ -182,20 +195,27 @@ bsbirct <- reactive({
   # input
   selrs <- input$selrs
   selgl <- input$selgl
+  selcl <- input$selcl
   trgtrct <- trgtrct()
   thrsrct <- thrsrct()
   cmbsrct <- cmbsrct()
   
   req(nrow(trgtrct) > 0)
-  
+  req(length(selcl) > 0)
+
   # validated bs variables
   valbs <- trgtrct$BSPretty
+  
+  # site type filter
+  if(setequal(selcl, unicl))
+    selcl <- c(NA, selcl)
   
   # filter observed, join with threshold and bs target data, get pass fail
   alltlly <- bsbidat %>% 
     filter(
       BSPretty %in% valbs &
-      Response %in% selrs
+      Response %in% selrs & 
+      strcls %in% selcl
       ) %>% 
     left_join(trgtrct, by = 'BSPretty') %>% 
     left_join(thrsrct, by = 'Response') %>% 

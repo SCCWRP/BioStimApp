@@ -30,13 +30,22 @@ bsbidat <- read.csv('raw/mydf.c3.csv', stringsAsFactors = F) %>%
 load(file = '../../Channels in developed landscapes_RM/Marcus/landscape_mod/data/calicls.RData')
 load(file = '../../Channels in developed landscapes_RM/Marcus/landscape_mod/data/csci_comid.RData')
 
+# get stream class by comid
 allcls <- calicls %>% 
   select(COMID, strcls)
 st_geometry(allcls) <- NULL
 
+# join site, comid, stream class
 cscicom <- csci_comid %>% 
-  select(StationCode, COMID, SampleDate, CSCI, SiteSet) %>% 
-  inner_join(allcls, by = 'COMID')
+  select(StationCode, COMID) %>% 
+  inner_join(allcls, by = 'COMID') %>% 
+  unique %>% 
+  select(-COMID) %>% 
+  rename(MasterID = StationCode)
+
+# join stream class with bsbi data
+bsbidat <- bsbidat %>% 
+  left_join(cscicom, by = 'MasterID')
 
 ##
 # site counts of passing/failing by each target, with probabilities
