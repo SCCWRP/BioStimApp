@@ -18,6 +18,7 @@ library(gridExtra)
 library(shinyWidgets)
 library(rsconnect)
 library(DT)
+library(patchwork)
 
 # data
 data(goaldat)
@@ -266,7 +267,7 @@ bsbirct <- reactive({
 
 ```
 
-This table shows the lowest validated biostimulatory thresholds for the selections above. Some biostimulatory variables may not be shown if the thresholds were not valided.   
+This table shows the lowest validated biostimulatory thresholds for the selections above. Some biostimulatory variables may not be shown if the thresholds were not validated.   
 ```{r output}
 renderTable({
   
@@ -285,7 +286,7 @@ renderTable({
     select(BSlabs, Est) %>% 
     rename(
       `Biostimulatory variable` = BSlabs,
-      `Lowest valided threshold` = Est
+      `Lowest validated threshold` = Est
     )
     
   if(nrow(trgtrct) == 0)
@@ -296,10 +297,15 @@ renderTable({
   })
 ```
 
-This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory thresholds.  Thresholds that are met are designated with "X".  The totals indicate the number of sites in each category and the percentage of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
+These tabs show the site summaries for all combinations of meeting or not meeting the biostimulatory thresholds.  Thresholds that are met are designated with "X" in the table and black squares on the left plot.  The totals indicate the number of sites in each category and the percentage of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
+
+# {.tabset}
+
+## Tabular
+
 ```{r}
 output$sumtab <- renderDataTable({
-  
+
   # input
   bsbirct <- bsbirct()
   
@@ -332,7 +338,83 @@ output$sumtab <- renderDataTable({
     )
   
 })
- 
-dataTableOutput('sumtab')
+
+dataTableOutput('sumtab') 
+```
+
+## Graphical 
+
+```{r}
+# bar plot of % sites meeting bi goals
+output$sumplo <- renderPlot({
+
+  # input
+  bsbirct <- bsbirct()
+
+  # which biosim targets met
+  toplo1 <- bsbirct %>% 
+    select(-Cal_bipassall, -Cal_bipassprp, -Val_bipassall, -Val_bipassprp) %>% 
+    unite('name', name, cnt, sep = ' ', remove = F) %>% 
+    mutate(name = factor(name, levels = rev(name))) %>% 
+    gather('var', 'val', -name, -cnt) %>% 
+    mutate(
+      var = factor(var, levels = sort(unibs))
+      )
+  
+  # plot for number of biostimulatory thresholds met
+  p1 <- ggplot(toplo1, aes(x = name, y = '1')) + 
+    geom_tile(aes(fill = val), colour = '#f0f0f090') +
+    coord_flip() +
+    scale_x_discrete('Total biostim thresholds met', expand = c(0, 0), labels = rev(toplo1$cnt)) +
+    scale_y_discrete(position = 'right', expand = c(0, 0)) +
+    facet_grid(~var) +
+    scale_fill_manual(values = c('white', 'black')) + 
+    theme_minimal(base_family = 'serif', base_size = 16) + 
+    theme(
+      axis.ticks = element_blank(), 
+      axis.title.x = element_blank(), 
+      axis.text.x = element_blank(),
+      legend.position = 'none',
+      panel.spacing = unit(0, "lines")
+    )
+  
+  # format for plot
+  toplo2 <- bsbirct %>% 
+    select(name, Cal_bipassall, Cal_bipassprp, Val_bipassall, Val_bipassprp) %>% 
+    gather('calval', 'val', -name) %>% 
+    separate(calval, c('calval', 'valtyp')) %>% 
+    spread(valtyp, val) %>% 
+    mutate(
+      bipassprprec = 100 - bipassprp
+      ) %>% 
+    gather('var', 'val', bipassprp, bipassprprec) %>% 
+    mutate(var = factor(var, levels = c('bipassprprec', 'bipassprp')))
+    
+  # bar plot
+  p2 <- ggplot(toplo2, aes(x = name, y = val, fill = var)) + 
+    geom_bar(stat = 'identity', width = 1, colour = '#f0f0f090') + 
+    facet_wrap(~calval) +
+    scale_x_reverse(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_fill_manual(values = c('white', 'black')) +
+    coord_flip() +
+    theme_minimal(base_family = 'serif', base_size = 16) + 
+    theme(
+      legend.position = 'none', 
+      axis.title = element_blank(), 
+      axis.text = element_blank(), 
+      strip.background = element_blank(),
+      axis.ticks = element_blank(), 
+      panel.grid = element_blank(), 
+      panel.border = element_blank(), 
+      plot.title = element_text(hjust = 0.5, size = 16)
+      ) + 
+    ggtitle('% sites meeting selected biointegrity goals')
+  
+  p1 + p2 + plot_layout(ncol = 2, widths = c(0.35, 1))
+
+}, height = 800)
+
+plotOutput('sumplo')
 ```
 
