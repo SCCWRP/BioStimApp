@@ -2,13 +2,13 @@ library(tidyverse)
 library(sf)
 
 ##
-# biostimulatory thresholds for each index
-thrsdat <- read.csv('raw/BIthresholds.csv', stringsAsFactors = F) %>% 
+# biostimulatory goals for each index
+goaldat <- read.csv('raw/BIthresholds.csv', stringsAsFactors = F) %>% 
   gather('BIgoal', 'glval', -Index) %>% 
   rename(Response = Index)
 
 ##
-# site bs values and bi values
+# site bs thresholds and bi goals
 # filter only selected sites
 bsbidat <- read.csv('raw/mydf.c3.csv', stringsAsFactors = F) %>% 
   filter(
@@ -53,6 +53,6 @@ bsbidat <- bsbidat %>%
 tllydat <- read.csv('raw/tab.threshold.rr.summary.csv', stringsAsFactors = F) %>% 
   filter(RR.l95.cal > 1 & RR.l95.val > 1)
 
-save(thrsdat, file = 'data/thrsdat.RData', compress = 'xz')
+save(goaldat, file = 'data/goaldat.RData', compress = 'xz')
 save(bsbidat, file = 'data/bsbidat.RData', compress = 'xz')
 save(tllydat, file = 'data/tllydat.RData', compress = 'xz')

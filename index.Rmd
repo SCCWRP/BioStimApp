@@ -20,7 +20,7 @@ library(rsconnect)
 library(DT)
 
 # data
-data(thrsdat)
+data(goaldat)
 data(bsbidat)
 data(tllydat)
 
@@ -48,12 +48,13 @@ unipr <- tllydat %>%
 # stream classes to select
 unicl <- bsbidat %>% 
   pull(strcls) %>% 
-  levels
+  levels %>% 
+  c(., 'no class')
 ```
 
 For internal SCCWRP/Waterboard use only for review of draft biostimulatory analyses. These are preliminary results, and are subject to change. Do not distribute. For questions, contact [Raphael Mazor](mailto:raphaelm@sccwrp.org) or [Marcus Beck](mailto:marcusb@sccwrp.org).
 
-Select the biostimulatory variables (one to all), biontegrity indices (one to all), one biointegrity goal, and one probability of meeting the goal.
+Select the biostimulatory variables (one to all), biontegrity indices (one to all), one biointegrity goal, one probability of meeting the goal, and site types by constraint classes (one to all).
 ```{r inputs}
 column(12, 
        
@@ -94,14 +95,14 @@ column(12,
 ```
 
 ```{r reactives}
-# filter bi thresholds by selection
-thrsrct <- reactive({
+# filter bi goals by selection
+goalrct <- reactive({
   
   # input
   selgl <- input$selgl
   selrs <- input$selrs
   
-  out <- thrsdat %>% 
+  out <- goaldat %>% 
     filter(BIgoal %in% selgl) %>% 
     filter(Response %in% selrs) %>% 
     unique
@@ -155,7 +156,7 @@ cmbsrct <- reactive({
     
 })
 
-# relevant targets for selection
+# relevant thresholds for selection
 trgtrct <- reactive({
   
   # input
@@ -165,7 +166,7 @@ trgtrct <- reactive({
   selpr <- input$selpr
 
   # filter by selection
-  # order by minimum target estimate
+  # order by minimum threshold estimate
   out <- tllydat %>% 
     filter(
       BSPretty %in% selbs &
@@ -197,7 +198,7 @@ bsbirct <- reactive({
   selgl <- input$selgl
   selcl <- input$selcl
   trgtrct <- trgtrct()
-  thrsrct <- thrsrct()
+  goalrct <- goalrct()
   cmbsrct <- cmbsrct()
   
   req(nrow(trgtrct) > 0)
@@ -207,10 +208,10 @@ bsbirct <- reactive({
   valbs <- trgtrct$BSPretty
   
   # site type filter
-  if(setequal(selcl, unicl))
-    selcl <- c(NA, selcl)
+  if('no class' %in% selcl)
+    selcl['no class'] <- NA
   
-  # filter observed, join with threshold and bs target data, get pass fail
+  # filter observed, join with goal and bs goal data, get pass fail
   alltlly <- bsbidat %>% 
     filter(
       BSPretty %in% valbs &
@@ -218,7 +219,7 @@ bsbirct <- reactive({
       strcls %in% selcl
       ) %>% 
     left_join(trgtrct, by = 'BSPretty') %>% 
-    left_join(thrsrct, by = 'Response') %>% 
+    left_join(goalrct, by = 'Response') %>% 
     mutate(
       bsfail = ifelse(bsval > Est, '', 'X'),
       bipass = bival >= glval
@@ -265,7 +266,7 @@ bsbirct <- reactive({
 
 ```
 
-This table shows the lowest validated biostimulatory targets for the selections above. Some biostimulatory variables may not be shown if the targets were not valided.   
+This table shows the lowest validated biostimulatory thresholds for the selections above. Some biostimulatory variables may not be shown if the thresholds were not valided.   
 ```{r output}
 renderTable({
   
@@ -284,18 +285,18 @@ renderTable({
     select(BSlabs, Est) %>% 
     rename(
       `Biostimulatory variable` = BSlabs,
-      `Lowest valided target` = Est
+      `Lowest valided threshold` = Est
     )
     
   if(nrow(trgtrct) == 0)
-    trgtrct <- 'No targets were validated'
+    trgtrct <- 'No thresholds were validated'
   
   trgtrct
   
   })
 ```
 
-This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory targets.  Targets that are met are designated with "X".  The totals indicate the number of sites in each category and the percentage of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
+This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory thresholds.  Thresholds that are met are designated with "X".  The totals indicate the number of sites in each category and the percentage of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
 ```{r}
 output$sumtab <- renderDataTable({
   
@@ -312,11 +313,11 @@ output$sumtab <- renderDataTable({
   totab <- bsbirct %>% 
     select(-name)%>% 
     rename(
-      `Total biostim targets met` = cnt, 
+      `Total biostim thresholds met` = cnt, 
       `Total sites (cal)` = Cal_bipassall,
-      `% meeting selected biointegrity targets (cal)` = Cal_bipassprp,
+      `% meeting selected biointegrity goals (cal)` = Cal_bipassprp,
       `Total sites (val)` = Val_bipassall,
-      `% meeting selected biointegrity targets (val)` = Val_bipassprp
+      `% meeting selected biointegrity goals (val)` = Val_bipassprp
     )
 
   # tab output
