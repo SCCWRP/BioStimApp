@@ -354,6 +354,7 @@ output$sumplo <- renderPlot({
   # which biosim targets met
   toplo1 <- bsbirct %>% 
     select(-Cal_bipassall, -Cal_bipassprp, -Val_bipassall, -Val_bipassprp) %>% 
+    mutate(cnt = paste0('(', cnt, ')')) %>% 
     unite('name', name, cnt, sep = ' ', remove = F) %>% 
     mutate(name = factor(name, levels = rev(name))) %>% 
     gather('var', 'val', -name, -cnt) %>% 
@@ -365,7 +366,7 @@ output$sumplo <- renderPlot({
   p1 <- ggplot(toplo1, aes(x = name, y = '1')) + 
     geom_tile(aes(fill = val), colour = '#f0f0f090') +
     coord_flip() +
-    scale_x_discrete('Total biostim thresholds met', expand = c(0, 0), labels = rev(toplo1$cnt)) +
+    scale_x_discrete('Tabular index and total biostim thresholds met', expand = c(0, 0), labels = rev(toplo1$name)) +
     scale_y_discrete(position = 'right', expand = c(0, 0)) +
     facet_grid(~var) +
     scale_fill_manual(values = c('white', 'black')) + 
@@ -388,30 +389,62 @@ output$sumplo <- renderPlot({
       bipassprprec = 100 - bipassprp
       ) %>% 
     gather('var', 'val', bipassprp, bipassprprec) %>% 
-    mutate(var = factor(var, levels = c('bipassprprec', 'bipassprp')))
-    
-  # bar plot
-  p2 <- ggplot(toplo2, aes(x = name, y = val, fill = var)) + 
-    geom_bar(stat = 'identity', width = 1, colour = '#f0f0f090') + 
-    facet_wrap(~calval) +
-    scale_x_reverse(expand = c(0, 0)) +
-    scale_y_continuous(expand = c(0, 0)) +
-    scale_fill_manual(values = c('white', 'black')) +
-    coord_flip() +
-    theme_minimal(base_family = 'serif', base_size = 16) + 
+    group_by(name) %>% 
+    mutate(
+      var = ifelse(any(bipassall >= 10) & var == 'bipassprp', 'bipassprpgr', var)
+    ) %>% 
+    ungroup %>% 
+    mutate(var = factor(var, levels = c('bipassprprec', 'bipassprp', 'bipassprpgr'))) 
+
+  # base theme for second plot
+  toplo2bs <- theme_minimal(base_family = 'serif', base_size = 16) + 
     theme(
       legend.position = 'none', 
       axis.title = element_blank(), 
-      axis.text = element_blank(), 
+      axis.text.x = element_blank(), 
       strip.background = element_blank(),
       axis.ticks = element_blank(), 
       panel.grid = element_blank(), 
       panel.border = element_blank(), 
-      plot.title = element_text(hjust = 0.5, size = 16)
-      ) + 
+      plot.title = element_text(size = 16)
+    )
+      
+  # calibration sites and axis labels/breaks
+  toplo2a <- toplo2 %>% 
+    filter(calval %in% 'Cal')
+  toplo2abrks <- toplo2a %>% 
+    select(name, bipassall) %>% 
+    unique 
+  
+  # bar plot, calibration
+  p2 <- ggplot(toplo2a, aes(x = name, fill = var)) + 
+    geom_bar(aes(y = val), stat = 'identity', width = 1, colour = '#f0f0f090') + 
+    facet_wrap(~calval) +
+    scale_x_reverse(expand = c(0, 0), breaks = toplo2abrks$name, labels = toplo2abrks$bipassall) +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_fill_manual(values = c('white', '#00000080', 'black')) +
+    coord_flip() +
+    toplo2bs + 
     ggtitle('% sites meeting selected biointegrity goals')
   
-  p1 + p2 + plot_layout(ncol = 2, widths = c(0.35, 1))
+  # validation sites and axis labels/breaks
+  toplo2b <- toplo2 %>% 
+    filter(calval %in% 'Val')
+  toplo2bbrks <- toplo2b %>% 
+    select(name, bipassall) %>% 
+    unique 
+  
+  # bar plot, validation
+  p3 <- ggplot(toplo2b, aes(x = name, fill = var)) + 
+    geom_bar(aes(y = val), stat = 'identity', width = 1, colour = '#f0f0f090') + 
+    facet_wrap(~calval) +
+    scale_x_reverse(expand = c(0, 0), breaks = toplo2bbrks$name, labels = toplo2bbrks$bipassall) +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_fill_manual(values = c('white', '#00000080', 'black')) +
+    coord_flip() + 
+    toplo2bs
+  
+  p1 + p2 + p3 + plot_layout(ncol = 3, widths = c(0.4, 0.5, 0.5))
 
 }, height = 800)
 
