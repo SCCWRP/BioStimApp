@@ -5,6 +5,6 @@ account: sccwrp
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 450156
-bundleId: 1672971
+bundleId: 1674404
 url: https://sccwrp.shinyapps.io/biostimapp/
-when: 1540937605.3892
+when: 1540998591.49127

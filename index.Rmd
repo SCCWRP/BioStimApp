@@ -55,7 +55,8 @@ unicl <- bsbidat %>%
 
 For internal SCCWRP/Waterboard use only for review of draft biostimulatory analyses. These are preliminary results, and are subject to change. Do not distribute. For questions, contact [Raphael Mazor](mailto:raphaelm@sccwrp.org) or [Marcus Beck](mailto:marcusb@sccwrp.org).
 
-Select the biostimulatory variables (one to all), biontegrity indices (one to all), one biointegrity goal, one probability of meeting the goal, and site types by constraint classes (one to all).
+Select the biostimulatory variables (one to all), biontegrity indices (one to all), one biointegrity goal, one probability of meeting the goal, and site types by constraint classes (one to all). 
+
 ```{r inputs}
 column(12, 
        
@@ -267,7 +268,14 @@ bsbirct <- reactive({
 
 ```
 
+# {.tabset}
+
+View the identified biostimulatory thresholds for the selections and tabular/graphical summaries of site counts meeting threshold and biointegrity goals in the tabular/graphical summaries.
+
+## Biostimulatory thresholds
+
 This table shows the lowest validated biostimulatory thresholds for the selections above. Some biostimulatory variables may not be shown if the thresholds were not validated.   
+
 ```{r output}
 renderTable({
   
@@ -297,11 +305,9 @@ renderTable({
   })
 ```
 
-These tabs show the site summaries for all combinations of meeting or not meeting the biostimulatory thresholds.  Thresholds that are met are designated with "X" in the table and black squares on the left plot.  The totals indicate the number of sites in each category and the percentage of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
+## Tabular summary
 
-# {.tabset}
-
-## Tabular
+This table shows the site summaries for all combinations of meeting or not meeting the biostimulatory thresholds.  Thresholds that are met are designated with "X" in the table.  The totals indicate the number of sites in each category and the percentage of those sites for which all selected biointegrity goals are met.  Totals are separated by calibration and validation sites.  Rows with ten or more calibration sites are in bold. Rows can be sorted using the selection arrows next to each column name (e.g., sort by a biostimulatory variable to see other variables that were not met).
 
 ```{r}
 output$sumtab <- renderDataTable({
@@ -342,7 +348,9 @@ output$sumtab <- renderDataTable({
 dataTableOutput('sumtab') 
 ```
 
-## Graphical 
+## Graphical summary
+
+This plot shows the site summaries for all combinations of meeting or not meeting the biostimulatory thresholds.  Thresholds that are met are shown by filled black boxes in the left plot.  The numbers on the left axis of the left plot correspond to the row indices in the table from the previous tab and the number of thresholds that are met are shown in parentheses.  The bar plots on the right show the percentage of sites meeting all biointegrity goals for calibration and validation sites.  The total number of sites in each category is shown on the left margin.  Rows with ten or more calibration sites are in solid black and those with less than ten are shown in grey.
 
 ```{r}
 # bar plot of % sites meeting bi goals
@@ -446,7 +454,7 @@ output$sumplo <- renderPlot({
   
   p1 + p2 + p3 + plot_layout(ncol = 3, widths = c(0.4, 0.5, 0.5))
 
-}, height = 800)
+}, height = 700)
 
 plotOutput('sumplo')
 ```
