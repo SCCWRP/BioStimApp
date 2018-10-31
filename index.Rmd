@@ -270,7 +270,7 @@ bsbirct <- reactive({
 
 # {.tabset}
 
-View the identified biostimulatory thresholds for the selections and tabular/graphical summaries of site counts meeting threshold and biointegrity goals in the tabular/graphical summaries.
+View the identified biostimulatory thresholds for the selections and tabular/graphical summaries of site counts meeting thresholds and biointegrity goals.
 
 ## Biostimulatory thresholds
 
