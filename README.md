@@ -1,5 +1,9 @@
 # README
 
+Materials for BioStimApp Shiny application for evaluating biostimulatory options for CSCI
+
+#### Methods
+
 1. In the thresholds dataframe
     1.	Identify validated targets where both RR.l95.cal and RR.l95.val>1.
     1.	Ask user for BS factors (TN TP Chl-a AFDM, % cover), BI indices (CSCI, ASCI H/D/S) of interest
