@@ -27,3 +27,6 @@ Materials for BioStimApp Shiny application for evaluating biostimulatory options
     1.	Hard-code confidence: (Based on binomial power/confidence?)
     1.	[Consider color-coding errors/successes]
     1.	Use points instead of bars
+
+### Metadata
+Contact: <a href="https://www.sccwrp.org/about/staff/raphael-mazor/">Raphael Mazor</a><br>
